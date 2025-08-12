@@ -313,6 +313,8 @@ class XYZScraper(RegionMixin):
             The data type to use for the images. If None, the value from
             `settings.IMG_DTYPE` will be used.
         """
+        if img_zoom is None:
+            img_zoom = settings.IMG_ZOOM
         if driver is None:
             driver = settings.IMG_DRIVER
         if dtype is None:
