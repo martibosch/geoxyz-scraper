@@ -24,6 +24,7 @@ from tqdm.auto import tqdm
 from geoxyz_scraper import settings
 
 PathType = str | os.PathLike
+WGS84_CRS = "EPSG:4326"
 
 
 # Mercator projection
@@ -143,7 +144,10 @@ def download_image(
     return img
 
 
-def get_tile_gdf(region_gdf: RegionType, zoom: int) -> gpd.GeoDataFrame:
+def get_tile_gdf(
+    region_gdf: RegionType,
+    zoom: int,
+) -> gpd.GeoDataFrame:
     """
     Generate a geo-data frame of XYZ tiles for the region at a given zoom level.
 
@@ -161,7 +165,7 @@ def get_tile_gdf(region_gdf: RegionType, zoom: int) -> gpd.GeoDataFrame:
         and their respective geometry as polygons in the WGS84 coordinate system.
     """
     # get region bounds (region is in WGS84)
-    west, south, east, north = region_gdf["geometry"].to_crs(epsg=4236).iloc[0].bounds
+    west, south, east, north = region_gdf["geometry"].to_crs(WGS84_CRS).total_bounds
 
     # get number of tiles for this zoom level
     n = 2.0**zoom
@@ -221,9 +225,10 @@ def get_tile_gdf(region_gdf: RegionType, zoom: int) -> gpd.GeoDataFrame:
 
     # convert to WGS84 geo-series
     tile_gdf = gpd.GeoDataFrame(
-        tile_df, geometry=tile_df.apply(row_to_box, axis="columns"), crs="epsg:4326"
+        tile_df, geometry=tile_df.apply(row_to_box, axis="columns"), crs=WGS84_CRS
     )
-    # filter to the region extent
+
+    # filter to the region extent and return it
     return tile_gdf[tile_gdf.intersects(region_gdf["geometry"].iloc[0])]
 
 
@@ -265,7 +270,7 @@ class XYZScraper(RegionMixin):
         # geometry, pyregeon will consider that it is in `self.crs`
         # TODO: inspect fix to pyregeon so that the crs of the region (when it is not a
         # naive geometry) is properly considered
-        self.crs = "epsg:4326"
+        self.crs = WGS84_CRS
         # ensure region is in WGS84
         self.region = self.region.to_crs(self.crs)
 
