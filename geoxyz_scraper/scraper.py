@@ -16,6 +16,7 @@ import pandas as pd
 import rasterio as rio
 import requests
 import yaml
+from osgeo import gdal
 from pyregeon import RegionMixin, RegionType
 from rasterio import transform
 from shapely import geometry
@@ -296,8 +297,9 @@ class XYZScraper(RegionMixin):
         tile_ids: Sequence | None = None,
         img_zoom: int | None = None,
         driver: str | None = None,
+        ext: str | None = None,
         dtype: str | None = None,
-    ):
+    ) -> gpd.GeoDataFrame:
         """
         Download tiles.
 
@@ -314,14 +316,24 @@ class XYZScraper(RegionMixin):
         driver : str, default None
             The image driver to use for saving the images. If None, the value from
             `settings.IMG_DRIVER` will be used.
+        ext : str, default None
+            The file extension to use for the images. If None, the value is inferred
+            from the `driver` argument.
         dtype : str, default None
             The data type to use for the images. If None, the value from
             `settings.IMG_DTYPE` will be used.
+
+        Returns
+        -------
+        tile_gdf : geopandas.GeoDataFrame
+            A tiles geo-data frame with the additional `filename` column.
         """
         if img_zoom is None:
             img_zoom = settings.IMG_ZOOM
         if driver is None:
             driver = settings.IMG_DRIVER
+        if ext is None:
+            ext = gdal.GetDriverByName(driver).GetMetadata_Dict()["DMD_EXTENSION"]
         if dtype is None:
             dtype = settings.IMG_DTYPE
         profile = {
@@ -336,6 +348,21 @@ class XYZScraper(RegionMixin):
         else:
             # use all tiles
             tile_gdf = self.tile_gdf
+
+        # make a copy to avoid modifying the original geo-data frame
+        tile_gdf = tile_gdf.copy()
+
+        # assign a file name
+        tile_gdf = tile_gdf.assign(
+            **{
+                "filename": tile_gdf.apply(
+                    lambda tile: f"{tile['west']}-{tile['south']}-{tile['east']}-"
+                    f"{tile['north']}-{img_zoom}.{ext}",
+                    axis="columns",
+                )
+            }
+        )
+
         for img_filename, tile_geom in tqdm(
             zip(tile_gdf["filename"], tile_gdf["geometry"]),
             total=len(tile_gdf.index),
@@ -365,3 +392,6 @@ class XYZScraper(RegionMixin):
             )
             with rio.open(path.join(dst_dir, img_filename), "w", **profile) as dst:
                 dst.write(img)
+
+        # return the tile geo-data frame with the filenames
+        return tile_gdf
