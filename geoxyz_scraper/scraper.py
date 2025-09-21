@@ -299,6 +299,7 @@ class XYZScraper(RegionMixin):
         driver: str | None = None,
         ext: str | None = None,
         dtype: str | None = None,
+        skip_existing: bool = True,
     ) -> gpd.GeoDataFrame:
         """
         Download tiles.
@@ -322,6 +323,8 @@ class XYZScraper(RegionMixin):
         dtype : str, default None
             The data type to use for the images. If None, the value from
             `settings.IMG_DTYPE` will be used.
+        skip_existing : bool, default True
+            Whether to skip downloading tiles that already exist in the destination.
 
         Returns
         -------
@@ -367,31 +370,35 @@ class XYZScraper(RegionMixin):
             zip(tile_gdf["filename"], tile_gdf["geometry"]),
             total=len(tile_gdf.index),
         ):
-            # download the image
-            img = download_image(
-                *tile_geom.bounds,
-                img_zoom,
-                self.url,
-                self.headers,
-                self.tile_size,
-                self.channels,
-            )
-            # convert from BGR (OpenCV default) to RGB
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            # rearrange dimensions to (channels, height, width)
-            img = img.transpose((2, 0, 1))  # HWC to CHW
-            # update profile with the image shape and transform
-            profile.update(
-                {
-                    "width": img.shape[2],
-                    "height": img.shape[1],
-                    "transform": transform.from_bounds(
-                        *tile_geom.bounds, img.shape[2], img.shape[1]
-                    ),
-                }
-            )
-            with rio.open(path.join(dst_dir, img_filename), "w", **profile) as dst:
-                dst.write(img)
+            dst_filepath = path.join(dst_dir, img_filename)
+            if skip_existing and path.exists(dst_filepath):
+                continue
+            else:
+                # download the image
+                img = download_image(
+                    *tile_geom.bounds,
+                    img_zoom,
+                    self.url,
+                    self.headers,
+                    self.tile_size,
+                    self.channels,
+                )
+                # convert from BGR (OpenCV default) to RGB
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                # rearrange dimensions to (channels, height, width)
+                img = img.transpose((2, 0, 1))  # HWC to CHW
+                # update profile with the image shape and transform
+                profile.update(
+                    {
+                        "width": img.shape[2],
+                        "height": img.shape[1],
+                        "transform": transform.from_bounds(
+                            *tile_geom.bounds, img.shape[2], img.shape[1]
+                        ),
+                    }
+                )
+                with rio.open(path.join(dst_dir, img_filename), "w", **profile) as dst:
+                    dst.write(img)
 
         # return the tile geo-data frame with the filenames
         return tile_gdf
