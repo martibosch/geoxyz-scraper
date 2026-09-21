@@ -8,7 +8,7 @@ version = "0.0.0"
 description = "Python package to scrape geospatial XYZ tiles"
 readme = "README.md"
 authors = [
-  {email = "marti.bosch@epfl.ch", name = "Martí Bosch"}
+  { email = "marti.bosch@epfl.ch", name = "Martí Bosch" }
 ]
 classifiers = [
   "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
