@@ -359,8 +359,10 @@ class XYZScraper(RegionMixin):
         tile_gdf = tile_gdf.assign(
             **{
                 "filename": tile_gdf.apply(
-                    lambda tile: f"{tile['west']}-{tile['south']}-{tile['east']}-"
-                    f"{tile['north']}-{img_zoom}.{ext}",
+                    lambda tile: (
+                        f"{tile['west']}-{tile['south']}-{tile['east']}-"
+                        f"{tile['north']}-{img_zoom}.{ext}"
+                    ),
                     axis="columns",
                 )
             }
